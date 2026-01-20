@@ -1,0 +1,30 @@
+{
+  "name": "Stock Trading Assistant",
+  "short_name": "Trading Assistant",
+  "description": "Real-time stock swing play detection and alerts",
+  "start_url": "/alerts/dashboard/index.html",
+  "display": "standalone",
+  "background_color": "#0a0e27",
+  "theme_color": "#4fc3f7",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E📈%3C/text%3E%3C/svg%3E",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["finance", "business"],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "View Alerts",
+      "short_name": "Alerts",
+      "description": "View recent stock alerts",
+      "url": "/alerts/dashboard/index.html",
+      "icons": []
+    }
+  ]
+}
+

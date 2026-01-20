@@ -1,0 +1,133 @@
+# API Configuration
+apis:
+  polygon:
+    enabled: true
+    base_url: "https://api.polygon.io"
+    websocket_url: "wss://socket.polygon.io/stocks"
+    rate_limit_per_minute: 200
+  
+  iex:
+    enabled: false
+    base_url: "https://cloud.iexapis.com/stable"
+    rate_limit_per_minute: 100
+  
+  benzinga:
+    enabled: true
+    base_url: "https://api.benzinga.com/api/v2.1"
+    rate_limit_per_minute: 60
+  
+  newsapi:
+    enabled: true
+    base_url: "https://newsapi.org/v2"
+    rate_limit_per_minute: 100
+  
+  openai:
+    model: "gpt-4-turbo-preview"
+    temperature: 0.3
+    max_tokens: 1000
+
+# Signal Detection Thresholds
+signal_detection:
+  volume_spike_multiplier: 2.5
+  volume_sustained_periods: 3
+  price_movement_percent: 2.0
+  volume_lookback_days: 20
+  
+  technical_indicators:
+    rsi_oversold: 30
+    rsi_overbought: 70
+    macd_signal_period: 9
+    sma_short_period: 10
+    sma_long_period: 50
+
+# Risk Filtering
+risk_filters:
+  min_market_cap: 50000000  # $50M
+  max_debt_to_equity: 2.0
+  min_current_ratio: 1.0
+  exclude_penny_stocks: true
+  min_price: 1.0
+  
+  dilution_checks:
+    max_dilution_last_90_days: 0.15  # 15% share increase
+    exclude_upcoming_rs: true
+    exclude_recent_rs_days: 90
+
+# Scoring Weights
+scoring:
+  volume_technical_weight: 0.30
+  catalyst_weight: 0.35
+  short_squeeze_weight: 0.15
+  fundamental_weight: 0.20
+  
+  min_total_score: 75
+  min_catalyst_score: 25
+  min_volume_technical_score: 20
+
+# News Analysis
+news_analysis:
+  poll_interval_minutes: 10
+  max_news_age_hours: 24
+  sentiment_threshold: 0.6
+  
+  catalyst_keywords:
+    biotech_phase3:
+      - "phase 3"
+      - "phase iii"
+      - "phase three"
+      - "clinical trial success"
+      - "fda approval"
+    partnership:
+      - "partnership"
+      - "collaboration"
+      - "strategic alliance"
+      - "joint venture"
+    buyout_merger:
+      - "acquisition"
+      - "merger"
+      - "buyout"
+      - "takeover"
+      - "bought"
+    funding:
+      - "funding round"
+      - "series"
+      - "investment"
+      - "capital raise"
+    short_squeeze:
+      - "short squeeze"
+      - "short interest"
+      - "squeeze"
+
+# Short Squeeze Detection
+short_squeeze:
+  min_short_interest_pct: 20
+  min_days_to_cover: 5
+  min_short_interest_increase_pct: 10
+
+# Alert Configuration
+alerts:
+  deduplication_window_minutes: 60
+  max_alerts_per_hour: 10
+  cooldown_period_minutes: 30
+  
+  webhook:
+    enabled: true
+    endpoint: "/api/v1/alerts"
+  
+  dashboard:
+    enabled: true
+    websocket_path: "/ws/alerts"
+
+# Database
+database:
+  connection_pool_size: 10
+  max_overflow: 20
+  pool_timeout: 30
+  query_timeout: 30
+
+# Performance
+performance:
+  batch_size: 100
+  cache_ttl_seconds: 300
+  max_concurrent_requests: 10
+

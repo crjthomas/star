@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: timescale/timescaledb:latest-pg16
+    container_name: stock_assistant_postgres
+    environment:
+      POSTGRES_USER: stockuser
+      POSTGRES_PASSWORD: stockpass
+      POSTGRES_DB: stockassistant
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U stockuser"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: stock_assistant_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: stock_assistant_chromadb
+    ports:
+      - "8000:8000"
+    volumes:
+      - chromadb_data:/chroma/chroma
+    environment:
+      - IS_PERSISTENT=TRUE
+      - ANONYMIZED_TELEMETRY=FALSE
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  redis_data:
+  chromadb_data:
+

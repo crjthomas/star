@@ -1,0 +1,63 @@
+# Scoring Model Weights
+# Total should sum to 1.0 (100%)
+
+weights:
+  volume_technical: 0.30
+  catalyst: 0.35
+  short_squeeze: 0.15
+  fundamental: 0.20
+
+# Sub-component weights within each category
+
+volume_technical:
+  volume_spike: 0.40
+  volume_sustained: 0.20
+  price_momentum: 0.25
+  technical_breakout: 0.15
+
+catalyst:
+  news_relevance: 0.30
+  sentiment_score: 0.25
+  catalyst_type_weight:
+    biotech_phase3: 1.0
+    buyout_merger: 0.95
+    partnership: 0.80
+    funding: 0.70
+    short_squeeze: 0.85
+    other: 0.50
+  timeliness: 0.15  # How recent the news is
+  source_credibility: 0.10
+
+short_squeeze:
+  short_interest_pct: 0.35
+  days_to_cover: 0.25
+  float_size: 0.20
+  short_interest_trend: 0.20  # Increasing short interest
+
+fundamental:
+  financial_stability: 0.35
+  cash_flow_positive: 0.25
+  revenue_growth: 0.20
+  debt_ratios: 0.20
+
+# Scoring thresholds
+thresholds:
+  min_total_score: 75
+  min_volume_technical_score: 20
+  min_catalyst_score: 25
+  min_fundamental_score: 12
+
+# Penalties (reduce score)
+penalties:
+  recent_dilution: -15
+  upcoming_rs: -20
+  negative_cash_flow: -10
+  high_debt: -8
+  penny_stock: -5
+
+# Bonuses (increase score)
+bonuses:
+  exceptional_volume: +5
+  multiple_catalysts: +3
+  strong_sentiment: +3
+
