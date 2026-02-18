@@ -7,6 +7,7 @@ from processing.volume_analyzer import VolumeAnalyzer
 from processing.technical_indicators import TechnicalIndicators
 from processing.catalyst_detector import CatalystDetector
 from processing.short_squeeze_detector import ShortSqueezeDetector
+from processing.pump_potential_detector import PumpPotentialDetector
 from scoring.fundamental_analyzer import FundamentalAnalyzer
 from scoring.dilution_checker import DilutionChecker
 
@@ -24,6 +25,7 @@ class SwingScoreCalculator:
         self.technical_indicators = TechnicalIndicators()
         self.catalyst_detector = CatalystDetector()
         self.short_squeeze_detector = ShortSqueezeDetector()
+        self.pump_potential_detector = PumpPotentialDetector()
         self.fundamental_analyzer = FundamentalAnalyzer()
         self.dilution_checker = DilutionChecker()
         
@@ -51,6 +53,7 @@ class SwingScoreCalculator:
         await self.technical_indicators.connect()
         await self.catalyst_detector.connect()
         await self.short_squeeze_detector.connect()
+        await self.pump_potential_detector.connect()
         await self.fundamental_analyzer.connect()
         await self.dilution_checker.connect()
         logger.info("Swing Score Calculator connected")
@@ -61,6 +64,7 @@ class SwingScoreCalculator:
         await self.technical_indicators.disconnect()
         await self.catalyst_detector.disconnect()
         await self.short_squeeze_detector.disconnect()
+        await self.pump_potential_detector.disconnect()
         await self.fundamental_analyzer.disconnect()
         await self.dilution_checker.disconnect()
     
@@ -100,7 +104,12 @@ class SwingScoreCalculator:
         # 4. Fundamental Analysis
         fundamental_score = await self._calculate_fundamental_score(ticker)
         
-        # 5. Dilution Risk Check
+        # 5. Pump Potential (low float, high short, volume spike)
+        pump_potential = await self.pump_potential_detector.detect_pump_potential(
+            ticker, current_volume
+        )
+        
+        # 6. Dilution Risk Check
         dilution_risk = await self.dilution_checker.check_dilution_risk(ticker)
         
         # Calculate weighted total score
@@ -149,6 +158,11 @@ class SwingScoreCalculator:
             bonuses_total += bonus
             bonus_reasons.append("Strong sentiment")
         
+        if pump_potential.get("has_pump_potential"):
+            bonus = self.bonuses.get("pump_potential", 8)
+            bonuses_total += bonus
+            bonus_reasons.append("Pump potential")
+        
         # Final score
         final_score = total_score - penalties_total + bonuses_total
         final_score = max(0.0, min(100.0, final_score))
@@ -170,6 +184,7 @@ class SwingScoreCalculator:
             "catalyst": catalyst_score,
             "short_squeeze": short_squeeze_score,
             "fundamental": fundamental_score,
+            "pump_potential": pump_potential,
             "dilution_risk": dilution_risk,
             "penalties": {
                 "total": penalties_total,

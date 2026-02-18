@@ -5,6 +5,20 @@ apis:
     base_url: "https://api.polygon.io"
     websocket_url: "wss://socket.polygon.io/stocks"
     rate_limit_per_minute: 200
+    # Subscribe to all stocks (use A.*). When true, any stock can trigger an alert.
+    monitor_all_stocks: true
+    # Only run full scoring when message volume exceeds this (filters noise in all-stocks mode).
+    min_volume_to_consider: 50000
+    # Don't re-check the same ticker for this many seconds (avoids API overload).
+    per_ticker_cooldown_seconds: 120
+    # Max scoring checks at once. Keep at 1 when monitoring all stocks (each score uses many DB pools).
+    max_concurrent_scoring: 1
+    # REST API polling fallback (works on most Polygon plans; runs during market hours)
+    rest_poll_enabled: true
+    rest_poll_interval_seconds: 60   # how often to poll for gainers/active stocks
+    rest_poll_min_volume: 500000     # min volume for regular session; extended-hours uses 1/5 of this
+    rest_poll_max_tickers: 20        # how many tickers to score per poll cycle
+    # Sessions covered: pre_market (04:00-09:30 ET), regular (09:30-16:00 ET), after_hours (16:00-20:00 ET)
   
   iex:
     enabled: false
@@ -104,6 +118,13 @@ short_squeeze:
   min_days_to_cover: 5
   min_short_interest_increase_pct: 10
 
+# Pump Potential (massive pump candidates: low float, high short, volume spike)
+pump_potential:
+  max_float_shares_millions: 50      # Float under this = higher pump score
+  max_market_cap_millions: 500       # Small cap = more volatile
+  min_short_percent_float: 15        # Short % of float above this = squeeze/pump
+  min_score_for_flag: 55            # Score >= this sets has_pump_potential
+
 # Alert Configuration
 alerts:
   deduplication_window_minutes: 60
@@ -119,9 +140,11 @@ alerts:
     websocket_path: "/ws/alerts"
 
 # Database
+# Use minimal pools: the app has many SQLClient/TimeseriesClient instances (one per component).
+# With monitor_all_stocks, keep total well under Postgres max_connections (200+).
 database:
-  connection_pool_size: 10
-  max_overflow: 20
+  connection_pool_size: 1
+  max_overflow: 2
   pool_timeout: 30
   query_timeout: 30
 

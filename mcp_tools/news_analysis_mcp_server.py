@@ -27,7 +27,15 @@ class NewsAnalysisMCPServer:
         """Initialize database connections."""
         if not self._connected:
             await self.sql_client.connect()
-            await self.vector_client.connect()
+            try:
+                await self.vector_client.connect()
+            except Exception as e:
+                logger.warning(
+                    "ChromaDB unavailable (news embeddings disabled). "
+                    "Start with: docker-compose up -d chromadb. Error: %s",
+                    e,
+                )
+                self.vector_client = None
             self._connected = True
             logger.info("News Analysis MCP Server connected")
     

@@ -81,6 +81,21 @@ class AlertManager:
         except Exception as e:
             logger.error(f"Error checking alert for {ticker}: {e}")
             return None
+
+    async def create_alert_from_score(
+        self, ticker: str, score_result: Dict[str, Any]
+    ) -> Optional[Dict[str, Any]]:
+        """Create an alert from an already-computed score (e.g. from Check ticker). Skips dedup/rate limit."""
+        ticker = normalize_ticker(ticker)
+        if not score_result.get("qualifies"):
+            return None
+        try:
+            alert = await self._create_alert(ticker, score_result)
+            self._track_alert(ticker)
+            return alert
+        except Exception as e:
+            logger.error(f"Error creating alert from score for {ticker}: {e}")
+            return None
     
     async def _is_duplicate(self, ticker: str) -> bool:
         """Check if alert was recently created for this ticker.
@@ -206,13 +221,17 @@ class AlertManager:
         catalyst_score = catalyst.get("score", 0)
         volume_score = volume.get("score", 0)
         
+        pump = score_result.get("pump_potential", {})
+        pump_line = ""
+        if pump.get("has_pump_potential"):
+            pump_line = f"🔥 Pump potential: {pump.get('score', 0):.0f}/100\n"
         message = f"""🚀 Swing Play Alert: {ticker}
 Score: {total_score:.1f}/100
 
 Strongest Catalyst: {strongest_catalyst} ({catalyst_score:.1f})
 Volume/Technical: {volume_score:.1f}/100
 Fundamental: {fundamental.get('score', 0):.1f}/100
-
+{pump_line}
 """
         
         if score_result.get("bonuses", {}).get("reasons"):

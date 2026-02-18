@@ -5,7 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Real-time stock swing play detection and alerts dashboard">
     <meta name="theme-color" content="#4fc3f7">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
     <link rel="manifest" href="manifest.json">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <title>Stock Trading Assistant - Dashboard</title>
     <style>
         * {
@@ -238,6 +241,245 @@
             color: #888;
         }
         
+        .header-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            background: #1a1f3a;
+            border: 1px solid #2a2f4a;
+            border-radius: 8px;
+            color: #e0e0e0;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        
+        .btn:hover {
+            background: #2a2f4a;
+            border-color: #4fc3f7;
+        }
+        
+        .btn-primary {
+            background: #4fc3f7;
+            border-color: #4fc3f7;
+            color: #0a0e27;
+        }
+        
+        .btn-primary:hover {
+            background: #5bc5f8;
+        }
+        
+        .alert-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #2a2f4a;
+        }
+        
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            overflow-y: auto;
+        }
+        
+        .modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-content {
+            background: #1a1f3a;
+            border-radius: 12px;
+            padding: 30px;
+            max-width: 800px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            border: 1px solid #2a2f4a;
+            position: relative;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #2a2f4a;
+        }
+        
+        .modal-title {
+            font-size: 24px;
+            color: #4fc3f7;
+        }
+        
+        .close-btn {
+            background: none;
+            border: none;
+            color: #888;
+            font-size: 28px;
+            cursor: pointer;
+            padding: 0;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .close-btn:hover {
+            color: #e0e0e0;
+        }
+        
+        .chart-container {
+            margin-top: 20px;
+            position: relative;
+            height: 400px;
+        }
+        
+        .watchlist-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            background: #0f1424;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #2a2f4a;
+        }
+        
+        .watchlist-item:hover {
+            background: #141928;
+        }
+        
+        .preference-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            border-bottom: 1px solid #2a2f4a;
+        }
+        
+        .preference-item:last-child {
+            border-bottom: none;
+        }
+        
+        .toggle-switch {
+            position: relative;
+            width: 50px;
+            height: 26px;
+        }
+        
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #2a2f4a;
+            transition: 0.3s;
+            border-radius: 26px;
+        }
+        
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 4px;
+            bottom: 4px;
+            background-color: #e0e0e0;
+            transition: 0.3s;
+            border-radius: 50%;
+        }
+        
+        input:checked + .slider {
+            background-color: #4fc3f7;
+        }
+        
+        input:checked + .slider:before {
+            transform: translateX(24px);
+        }
+        
+        .input-group {
+            margin-bottom: 15px;
+        }
+        
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #888;
+            font-size: 14px;
+        }
+        
+        .input-group input {
+            width: 100%;
+            padding: 10px;
+            background: #0f1424;
+            border: 1px solid #2a2f4a;
+            border-radius: 8px;
+            color: #e0e0e0;
+            font-size: 14px;
+        }
+        
+        .input-group input:focus {
+            outline: none;
+            border-color: #4fc3f7;
+        }
+        
+        .performance-metric {
+            display: flex;
+            flex-direction: column;
+            padding: 15px;
+            background: #0f1424;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+        
+        .performance-metric .label {
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 5px;
+        }
+        
+        .performance-metric .value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #4fc3f7;
+        }
+        
+        .performance-metric .value.positive {
+            color: #4caf50;
+        }
+        
+        .performance-metric .value.negative {
+            color: #f44336;
+        }
+        
         @media (max-width: 768px) {
             .alerts-container {
                 grid-template-columns: 1fr;
@@ -247,6 +489,11 @@
                 flex-direction: column;
                 gap: 15px;
                 align-items: flex-start;
+            }
+            
+            .header-actions {
+                width: 100%;
+                flex-wrap: wrap;
             }
             
             .controls {
@@ -265,16 +512,40 @@
                 flex-direction: column;
                 gap: 10px;
             }
+            
+            .modal-content {
+                padding: 20px;
+            }
+            
+            .chart-container {
+                height: 300px;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
+        <!-- Prominent "Check ticker" bar so it's always visible -->
+        <div style="background: linear-gradient(135deg, #1a3a4a 0%, #1a1f3a 100%); border: 2px solid #4fc3f7; border-radius: 12px; padding: 16px 20px; margin-bottom: 24px;">
+            <div style="font-size: 14px; color: #8ab4c4; margin-bottom: 8px;">Test the dashboard or trigger a score check:</div>
+            <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                <input type="text" id="checkTickerInput" placeholder="e.g. AAPL" style="width: 160px; padding: 12px 16px; background: #0f1424; border: 2px solid #4fc3f7; border-radius: 8px; color: #e0e0e0; font-size: 16px;" />
+                <button type="button" class="btn btn-primary" id="checkTickerBtn" style="padding: 12px 24px; font-size: 16px;">Check ticker</button>
+                <span id="checkTickerMessage" style="color: #8ab4c4; font-size: 14px;"></span>
+            </div>
+        </div>
         <header>
             <h1>📈 Stock Trading Assistant</h1>
-            <div class="status">
-                <div class="status-indicator" id="statusIndicator"></div>
-                <span id="statusText">Connecting...</span>
+            <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap;">
+                <div class="header-actions" style="display: flex; align-items: center; gap: 10px;">
+                    <button class="btn" id="watchlistBtn">📋 Watchlist</button>
+                    <button class="btn" id="preferencesBtn">⚙️ Preferences</button>
+                    <button class="btn" id="notificationsBtn">🔔 Enable Notifications</button>
+                </div>
+                <div class="status">
+                    <div class="status-indicator" id="statusIndicator"></div>
+                    <span id="statusText">Connecting...</span>
+                </div>
             </div>
         </header>
         
@@ -317,21 +588,112 @@
                     <option value="partnership">Partnership</option>
                     <option value="buyout">Buyout</option>
                     <option value="short_squeeze">Short Squeeze</option>
+                    <option value="pump_potential">Pump potential</option>
                 </select>
             </div>
+        </div>
+        
+        <div class="empty-state-hint" id="emptyStateHint" style="margin-bottom: 20px; padding: 16px; background: #1a1f3a; border-radius: 8px; border: 1px solid #2a2f4a;">
+            <p style="color: #888;">Alerts appear when the alert system is running (<code>python run_alert_system.py</code>) and a stock qualifies (score &gt; 75). Use the <strong>Check ticker</strong> box above to test a symbol, or leave the scanner running for automatic alerts.</p>
         </div>
         
         <div class="alerts-container" id="alertsContainer">
             <div class="empty-state">
                 <h2>No alerts yet</h2>
-                <p>Waiting for swing play candidates...</p>
+                <p>Alerts appear when the scanner is running and a stock qualifies (score 75+), or when you use <strong>Check ticker</strong> above and that ticker qualifies. Try checking a ticker (e.g. AAPL) to test.</p>
             </div>
         </div>
     </div>
 
+    <!-- Preferences Modal -->
+    <div class="modal" id="preferencesModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Preferences</h2>
+                <button class="close-btn" onclick="closeModal('preferencesModal')">&times;</button>
+            </div>
+            <div class="preference-item">
+                <div>
+                    <strong>Minimum Score Threshold</strong>
+                    <p style="color: #888; font-size: 12px; margin-top: 5px;">Only show alerts above this score</p>
+                </div>
+                <input type="number" id="minScoreInput" min="0" max="100" style="width: 80px; padding: 8px;" />
+            </div>
+            <div class="preference-item">
+                <div>
+                    <strong>Enable Browser Notifications</strong>
+                    <p style="color: #888; font-size: 12px; margin-top: 5px;">Receive push notifications for new alerts</p>
+                </div>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="notificationsEnabled" />
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div class="preference-item">
+                <div>
+                    <strong>Default Sort</strong>
+                    <p style="color: #888; font-size: 12px; margin-top: 5px;">Default sorting order for alerts</p>
+                </div>
+                <select id="defaultSortSelect" style="padding: 8px; background: #0f1424; border: 1px solid #2a2f4a; border-radius: 8px; color: #e0e0e0;">
+                    <option value="newest">Newest First</option>
+                    <option value="oldest">Oldest First</option>
+                    <option value="score-high">Highest Score</option>
+                    <option value="score-low">Lowest Score</option>
+                    <option value="ticker">Ticker A-Z</option>
+                </select>
+            </div>
+            <button class="btn btn-primary" onclick="savePreferences()" style="margin-top: 20px; width: 100%;">Save Preferences</button>
+        </div>
+    </div>
+
+    <!-- Watchlist Modal -->
+    <div class="modal" id="watchlistModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Watchlist</h2>
+                <button class="close-btn" onclick="closeModal('watchlistModal')">&times;</button>
+            </div>
+            <div class="input-group" style="margin-bottom: 20px;">
+                <label>Add Ticker to Watchlist</label>
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" id="watchlistTickerInput" placeholder="Enter ticker (e.g., AAPL)" style="flex: 1;" />
+                    <button class="btn btn-primary" onclick="addToWatchlist()">Add</button>
+                </div>
+            </div>
+            <div id="watchlistItems"></div>
+        </div>
+    </div>
+
+    <!-- Chart Modal -->
+    <div class="modal" id="chartModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title" id="chartModalTitle">Price Chart</h2>
+                <button class="close-btn" onclick="closeModal('chartModal')">&times;</button>
+            </div>
+            <div class="chart-container">
+                <canvas id="priceChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Performance Modal -->
+    <div class="modal" id="performanceModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title" id="performanceModalTitle">Performance Metrics</h2>
+                <button class="close-btn" onclick="closeModal('performanceModal')">&times;</button>
+            </div>
+            <div id="performanceMetrics"></div>
+        </div>
+    </div>
+
     <script>
-        const API_BASE = window.location.origin;
-        const WS_URL = API_BASE.replace('http', 'ws') + '/ws/alerts';
+        // Use same host as page; if opened as file://, point to default server
+        const API_BASE = (window.location.origin && window.location.origin !== 'file://' && window.location.origin !== 'null')
+            ? window.location.origin
+            : 'http://localhost:8000';
+        const WS_URL = API_BASE.replace(/^http/, 'ws') + '/ws/alerts';
         
         let ws = null;
         let alerts = [];
@@ -423,9 +785,11 @@
                 
                 // Catalyst filter
                 if (catalystFilter !== 'all') {
-                    const catalyst = (alert.metadata?.catalyst?.strongest_catalyst || '').toLowerCase();
-                    if (!catalyst.includes(catalystFilter.replace('_', ' '))) {
-                        return false;
+                    if (catalystFilter === 'pump_potential') {
+                        if (!alert.metadata?.pump_potential?.has_pump_potential) return false;
+                    } else {
+                        const catalyst = (alert.metadata?.catalyst?.strongest_catalyst || '').toLowerCase();
+                        if (!catalyst.includes(catalystFilter.replace('_', ' '))) return false;
                     }
                 }
                 
@@ -467,18 +831,18 @@
             applyFilters();
             updateStats();
             renderAlerts();
+            var hint = document.getElementById('emptyStateHint');
+            if (hint) hint.style.display = alerts.length > 0 ? 'none' : 'block';
         }
         
         function renderAlerts() {
             const container = document.getElementById('alertsContainer');
             
             if (filteredAlerts.length === 0) {
-                container.innerHTML = `
-                    <div class="empty-state">
-                        <h2>No alerts match your filters</h2>
-                        <p>Try adjusting your search or filter criteria</p>
-                    </div>
-                `;
+                const msg = alerts.length === 0
+                    ? '<h2>No alerts yet</h2><p>Alerts appear when the scanner is running and a stock qualifies (score 75+), or when you use <strong>Check ticker</strong> above and that ticker qualifies. Try checking a ticker (e.g. AAPL) to test.</p>'
+                    : '<h2>No alerts match your filters</h2><p>Try adjusting your search or filter criteria</p>';
+                container.innerHTML = `<div class="empty-state">${msg}</div>`;
                 return;
             }
             
@@ -500,6 +864,8 @@
             const catalyst = metadata.catalyst || {};
             const fundamental = metadata.fundamental || {};
             const dilution = metadata.dilution_risk || {};
+            const pump = metadata.pump_potential || {};
+            const hasPump = pump.has_pump_potential === true;
             
             const created = new Date(alert.created_at || Date.now());
             const timeStr = created.toLocaleString();
@@ -509,6 +875,7 @@
                     <div class="alert-header">
                         <span class="ticker">${alert.ticker}</span>
                         <span class="score">${alert.score?.toFixed(1)}/100</span>
+                        ${hasPump ? '<span class="badge" style="background:#ff9800;color:#000;font-size:11px;padding:2px 6px;border-radius:4px;margin-left:6px;">Pump potential</span>' : ''}
                     </div>
                     <div class="alert-message">${alert.message || ''}</div>
                     <div class="details">
@@ -524,10 +891,16 @@
                             <div class="detail-label">Fundamental Score</div>
                             <div class="detail-value">${fundamental.score?.toFixed(1) || 0}/100</div>
                         </div>
+                        ${hasPump ? `<div class="detail-item"><div class="detail-label">Pump potential</div><div class="detail-value">🔥 ${pump.score ?? 0}/100</div></div>` : ''}
                         <div class="detail-item">
                             <div class="detail-label">Dilution Risk</div>
                             <div class="detail-value">${dilution.has_dilution_risk ? '⚠️ Yes' : '✅ No'}</div>
                         </div>
+                    </div>
+                    <div class="alert-actions">
+                        <button class="btn btn-sm" onclick="showChart('${alert.ticker}')">📊 Chart</button>
+                        <button class="btn btn-sm" onclick="showPerformance('${alert.ticker}')">📈 Performance</button>
+                        <button class="btn btn-sm" onclick="addToWatchlistFromAlert('${alert.ticker}')">➕ Watchlist</button>
                     </div>
                     <div style="margin-top: 10px; font-size: 12px; color: #666;">
                         ${timeStr}
@@ -536,25 +909,437 @@
             `;
         }
         
+        // Preferences Management
+        function loadPreferences() {
+            const prefs = JSON.parse(localStorage.getItem('preferences') || '{}');
+            document.getElementById('minScoreInput').value = prefs.minScore || 75;
+            document.getElementById('notificationsEnabled').checked = prefs.enableNotifications || false;
+            document.getElementById('defaultSortSelect').value = prefs.defaultSort || 'newest';
+            updateNotificationsButton();
+        }
+        
+        function savePreferences() {
+            const prefs = {
+                minScore: parseInt(document.getElementById('minScoreInput').value) || 75,
+                enableNotifications: document.getElementById('notificationsEnabled').checked,
+                defaultSort: document.getElementById('defaultSortSelect').value
+            };
+            localStorage.setItem('preferences', JSON.stringify(prefs));
+            
+            // Apply preferences
+            if (prefs.minScore) {
+                document.getElementById('filterScore').value = prefs.minScore + '+';
+            }
+            if (prefs.defaultSort) {
+                document.getElementById('sortSelect').value = prefs.defaultSort;
+            }
+            
+            applyFiltersAndRender();
+            closeModal('preferencesModal');
+            
+            // Setup notifications if enabled
+            if (prefs.enableNotifications) {
+                requestNotificationPermission();
+            }
+            
+            updateNotificationsButton();
+        }
+        
+        // Watchlist Management
+        function loadWatchlist() {
+            const watchlist = JSON.parse(localStorage.getItem('watchlist') || '[]');
+            renderWatchlist(watchlist);
+            return watchlist;
+        }
+        
+        function saveWatchlist(watchlist) {
+            localStorage.setItem('watchlist', JSON.stringify(watchlist));
+            renderWatchlist(watchlist);
+        }
+        
+        function addToWatchlist() {
+            const tickerInput = document.getElementById('watchlistTickerInput');
+            const ticker = tickerInput.value.trim().toUpperCase();
+            
+            if (!ticker) return;
+            
+            let watchlist = loadWatchlist();
+            if (!watchlist.includes(ticker)) {
+                watchlist.push(ticker);
+                saveWatchlist(watchlist);
+                tickerInput.value = '';
+            }
+        }
+        
+        function addToWatchlistFromAlert(ticker) {
+            let watchlist = loadWatchlist();
+            if (!watchlist.includes(ticker)) {
+                watchlist.push(ticker);
+                saveWatchlist(watchlist);
+                alert(`${ticker} added to watchlist!`);
+            } else {
+                alert(`${ticker} is already in your watchlist!`);
+            }
+        }
+        
+        function removeFromWatchlist(ticker) {
+            let watchlist = loadWatchlist();
+            watchlist = watchlist.filter(t => t !== ticker);
+            saveWatchlist(watchlist);
+        }
+        
+        function renderWatchlist(watchlist) {
+            const container = document.getElementById('watchlistItems');
+            
+            if (watchlist.length === 0) {
+                container.innerHTML = '<p style="color: #666; text-align: center; padding: 20px;">Your watchlist is empty</p>';
+                return;
+            }
+            
+            container.innerHTML = watchlist.map(ticker => `
+                <div class="watchlist-item">
+                    <div>
+                        <strong style="color: #4fc3f7; font-size: 18px;">${ticker}</strong>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <button class="btn btn-sm" onclick="showChart('${ticker}')">Chart</button>
+                        <button class="btn btn-sm" onclick="checkTicker('${ticker}')">Check</button>
+                        <button class="btn btn-sm" onclick="removeFromWatchlist('${ticker}')" style="background: #f44336; border-color: #f44336;">Remove</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        // Chart Display
+        let priceChart = null;
+        
+        async function showChart(ticker) {
+            document.getElementById('chartModalTitle').textContent = `${ticker} - Price Chart`;
+            const modal = document.getElementById('chartModal');
+            modal.classList.add('active');
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/ticker/${ticker}/price-history?days=30`);
+                const result = await response.json();
+                
+                if (result.success && result.data.length > 0) {
+                    renderChart(result.data, ticker);
+                } else {
+                    document.getElementById('chartModal').querySelector('.chart-container').innerHTML = 
+                        '<p style="color: #666; text-align: center; padding: 40px;">No price data available</p>';
+                }
+            } catch (error) {
+                console.error('Error fetching chart data:', error);
+                document.getElementById('chartModal').querySelector('.chart-container').innerHTML = 
+                    '<p style="color: #f44336; text-align: center; padding: 40px;">Error loading chart data</p>';
+            }
+        }
+        
+        function renderChart(data, ticker) {
+            const ctx = document.getElementById('priceChart');
+            const container = ctx.parentElement;
+            
+            // Destroy existing chart if it exists
+            if (priceChart) {
+                priceChart.destroy();
+            }
+            
+            // Create new canvas if needed
+            if (!ctx) {
+                const canvas = document.createElement('canvas');
+                canvas.id = 'priceChart';
+                container.innerHTML = '';
+                container.appendChild(canvas);
+                priceChart = new Chart(canvas.getContext('2d'), getChartConfig(data, ticker));
+            } else {
+                priceChart = new Chart(ctx.getContext('2d'), getChartConfig(data, ticker));
+            }
+        }
+        
+        function getChartConfig(data, ticker) {
+            const labels = data.map(d => new Date(d.time).toLocaleDateString());
+            const prices = data.map(d => parseFloat(d.close));
+            const volumes = data.map(d => parseInt(d.volume));
+            
+            return {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Price',
+                        data: prices,
+                        borderColor: '#4fc3f7',
+                        backgroundColor: 'rgba(79, 195, 247, 0.1)',
+                        yAxisID: 'y',
+                        tension: 0.1
+                    }, {
+                        label: 'Volume',
+                        data: volumes,
+                        borderColor: '#4caf50',
+                        backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                        yAxisID: 'y1',
+                        type: 'bar'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: { color: '#e0e0e0' }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: { color: '#888' },
+                            grid: { color: '#2a2f4a' }
+                        },
+                        y: {
+                            type: 'linear',
+                            position: 'left',
+                            ticks: { color: '#888' },
+                            grid: { color: '#2a2f4a' }
+                        },
+                        y1: {
+                            type: 'linear',
+                            position: 'right',
+                            ticks: { color: '#888' },
+                            grid: { drawOnChartArea: false }
+                        }
+                    }
+                }
+            };
+        }
+        
+        // Performance Metrics
+        async function showPerformance(ticker) {
+            document.getElementById('performanceModalTitle').textContent = `${ticker} - Performance Metrics`;
+            const modal = document.getElementById('performanceModal');
+            modal.classList.add('active');
+            
+            const container = document.getElementById('performanceMetrics');
+            container.innerHTML = '<p style="color: #666; text-align: center; padding: 40px;">Loading performance data...</p>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/ticker/${ticker}/performance?days=90`);
+                const result = await response.json();
+                
+                if (result.success && result.performance) {
+                    const perf = result.performance;
+                    container.innerHTML = `
+                        <div class="performance-metric">
+                            <div class="label">Win Rate</div>
+                            <div class="value ${perf.win_rate >= 50 ? 'positive' : 'negative'}">${(perf.win_rate || 0).toFixed(2)}%</div>
+                        </div>
+                        <div class="performance-metric">
+                            <div class="label">Average Return</div>
+                            <div class="value ${(perf.avg_return_pct || 0) >= 0 ? 'positive' : 'negative'}">${(perf.avg_return_pct || 0).toFixed(2)}%</div>
+                        </div>
+                        <div class="performance-metric">
+                            <div class="label">Total Trades</div>
+                            <div class="value">${perf.total_trades || 0}</div>
+                        </div>
+                        <div class="performance-metric">
+                            <div class="label">Winning Trades</div>
+                            <div class="value positive">${perf.winning_trades || 0}</div>
+                        </div>
+                        <div class="performance-metric">
+                            <div class="label">Losing Trades</div>
+                            <div class="value negative">${perf.losing_trades || 0}</div>
+                        </div>
+                    `;
+                } else {
+                    container.innerHTML = '<p style="color: #666; text-align: center; padding: 40px;">No performance data available</p>';
+                }
+            } catch (error) {
+                console.error('Error fetching performance data:', error);
+                container.innerHTML = '<p style="color: #f44336; text-align: center; padding: 40px;">Error loading performance data</p>';
+            }
+        }
+        
+        async function checkTicker(ticker) {
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/score?ticker=${ticker}`, {
+                    method: 'POST'
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert(`${ticker} Score: ${result.score.total_score.toFixed(1)}/100`);
+                }
+            } catch (error) {
+                console.error('Error checking ticker:', error);
+                alert('Error checking ticker');
+            }
+        }
+        
+        // Modal Management
+        function openModal(modalId) {
+            document.getElementById(modalId).classList.add('active');
+        }
+        
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+            if (modalId === 'chartModal' && priceChart) {
+                priceChart.destroy();
+                priceChart = null;
+            }
+        }
+        
+        // Close modals when clicking outside
+        document.addEventListener('click', (e) => {
+            if (e.target.classList.contains('modal')) {
+                e.target.classList.remove('active');
+            }
+        });
+        
+        // Push Notifications
+        function requestNotificationPermission() {
+            if ('Notification' in window && 'serviceWorker' in navigator) {
+                Notification.requestPermission().then(permission => {
+                    if (permission === 'granted') {
+                        registerServiceWorker();
+                        updateNotificationsButton();
+                    }
+                });
+            }
+        }
+        
+        function updateNotificationsButton() {
+            const enabled = localStorage.getItem('preferences') && 
+                          JSON.parse(localStorage.getItem('preferences')).enableNotifications;
+            
+            const btn = document.getElementById('notificationsBtn');
+            if (enabled && Notification.permission === 'granted') {
+                btn.textContent = '🔔 Notifications Enabled';
+                btn.classList.add('btn-primary');
+            } else {
+                btn.textContent = '🔔 Enable Notifications';
+                btn.classList.remove('btn-primary');
+            }
+        }
+        
+        async function registerServiceWorker() {
+            if ('serviceWorker' in navigator) {
+                try {
+                    const registration = await navigator.serviceWorker.register('/alerts/dashboard/service-worker.js');
+                    console.log('Service Worker registered:', registration);
+                } catch (error) {
+                    console.error('Service Worker registration failed:', error);
+                }
+            }
+        }
+        
+        function showNotification(title, body, data) {
+            if (Notification.permission === 'granted') {
+                new Notification(title, {
+                    body: body,
+                    icon: '/alerts/dashboard/manifest.json',
+                    badge: '/alerts/dashboard/manifest.json',
+                    tag: 'stock-alert',
+                    requireInteraction: true,
+                    data: data
+                });
+            }
+        }
+        
+        // Update alert handler to show notifications
+        const originalAddAlert = addAlert;
+        function addAlert(alert) {
+            originalAddAlert(alert);
+            
+            // Show notification if enabled
+            const prefs = JSON.parse(localStorage.getItem('preferences') || '{}');
+            if (prefs.enableNotifications && Notification.permission === 'granted') {
+                showNotification(
+                    `Alert: ${alert.ticker}`,
+                    `Score: ${alert.score?.toFixed(1)}/100 - ${alert.message || 'New swing play candidate'}`,
+                    { ticker: alert.ticker, url: '/alerts/dashboard/index.html' }
+                );
+            }
+        }
+        
         // Initialize event listeners
         document.getElementById('searchInput').addEventListener('input', applyFiltersAndRender);
         document.getElementById('sortSelect').addEventListener('change', applyFiltersAndRender);
         document.getElementById('filterScore').addEventListener('change', applyFiltersAndRender);
         document.getElementById('filterCatalyst').addEventListener('change', applyFiltersAndRender);
         
+        document.getElementById('preferencesBtn').addEventListener('click', () => {
+            loadPreferences();
+            openModal('preferencesModal');
+        });
+        
+        document.getElementById('watchlistBtn').addEventListener('click', () => {
+            loadWatchlist();
+            openModal('watchlistModal');
+        });
+        
+        document.getElementById('notificationsBtn').addEventListener('click', requestNotificationPermission);
+        
+        // Watchlist input enter key
+        document.getElementById('watchlistTickerInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                addToWatchlist();
+            }
+        });
+        
         // Initialize on page load
+        loadPreferences();
+        loadWatchlist();
+        updateNotificationsButton();
+        registerServiceWorker();
         initWebSocket();
         
-        // Also fetch initial alerts via REST API
+        // Check ticker button: POST /api/v1/alerts/check and show result
+        var checkBtn = document.getElementById('checkTickerBtn');
+        var checkInput = document.getElementById('checkTickerInput');
+        var checkMsg = document.getElementById('checkTickerMessage');
+        if (checkBtn && checkInput) {
+        checkBtn.addEventListener('click', async () => {
+            const ticker = (checkInput.value || '').trim().toUpperCase();
+            const msgEl = checkMsg;
+            if (!ticker) {
+                msgEl.textContent = 'Enter a ticker symbol.';
+                return;
+            }
+            msgEl.textContent = 'Checking...';
+            msgEl.style.color = '#888';
+            try {
+                const res = await fetch(`${API_BASE}/api/v1/alerts/check?ticker=${encodeURIComponent(ticker)}`, { method: 'POST' });
+                const data = await res.json();
+                if (data.qualifies && data.alert) {
+                    addAlert(data.alert);
+                    msgEl.textContent = `${ticker} qualified! Score: ${data.alert.score?.toFixed(1)}/100`;
+                    msgEl.style.color = '#4caf50';
+                } else {
+                    msgEl.textContent = data.message || `${ticker} did not qualify.`;
+                    msgEl.style.color = '#ff9800';
+                }
+            } catch (err) {
+                msgEl.textContent = 'Error: ' + (err.message || 'Could not reach server. Is the webhook server running?');
+                msgEl.style.color = '#f44336';
+            }
+        });
+        checkInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') checkBtn.click();
+        });
+        }
+
+        // Fetch initial alerts via REST API; show message if server unreachable
         fetch(`${API_BASE}/api/v1/alerts?limit=20`)
             .then(res => res.json())
             .then(data => {
-                if (data.alerts && data.alerts.length > 0) {
-                    alerts = data.alerts;
-                    applyFiltersAndRender();
-                }
+                alerts = data.alerts || [];
+                applyFiltersAndRender();
             })
-            .catch(err => console.error('Error fetching alerts:', err));
+            .catch(err => {
+                console.error('Error fetching alerts:', err);
+                var container = document.getElementById('alertsContainer');
+                if (container && alerts.length === 0) {
+                    container.innerHTML = '<div class="empty-state"><h2>Cannot reach server</h2><p>Start the alert system: <code>python run_alert_system.py</code></p><p>Then open this page at <strong>http://localhost:8000/alerts/dashboard/index.html</strong> (not as a file).</p></div>';
+                }
+            });
     </script>
 </body>
 </html>

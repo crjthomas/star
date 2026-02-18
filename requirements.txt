@@ -9,7 +9,7 @@ langchain==0.1.0
 langchain-openai==0.0.2
 langchain-community==0.0.10
 langgraph==0.0.20
-mcp==0.9.0
+mcp==0.9.1
 
 # Data Processing
 pandas==2.1.4
@@ -17,11 +17,12 @@ numpy==1.26.2
 yfinance==0.2.32
 ta==0.11.0
 
-# Async & HTTP
+# Async & HTTP (anyio>=4.6 required by mcp; fastapi needs starlette 0.31+ for anyio 4)
+# httpx>=0.28 drops 'proxies' arg; openai 1.6.x still passes it, so cap httpx
+anyio>=4.6,<5
 aiohttp==3.9.1
-httpx==0.25.2
-websockets==12.0
-asyncio==3.4.3
+httpx>=0.25.2,<0.28
+websockets==11.0
 
 # Database Clients
 asyncpg==0.29.0
@@ -41,13 +42,13 @@ requests==2.31.0
 openai==1.6.1
 tiktoken==0.5.2
 
-# FastAPI & Web
-fastapi==0.104.1
-uvicorn==0.24.0
-websockets==12.0
-python-multipart==0.0.6
+# FastAPI & Web (0.115+ uses starlette that supports anyio 4.x)
+fastapi>=0.115.0
+uvicorn>=0.24.0
+python-multipart>=0.0.6
 
 # Utilities
+certifi>=2022.5.18,<2024.0.0
 python-dateutil==2.8.2
 pytz==2023.3
 beautifulsoup4==4.12.2

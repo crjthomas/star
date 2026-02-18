@@ -1,7 +1,9 @@
 """WebSocket handler for real-time market data."""
 import asyncio
 import json
+import ssl
 import websockets
+import certifi
 from typing import Callable, List, Optional, Dict, Any
 from datetime import datetime
 from utils.logger import get_logger
@@ -27,8 +29,12 @@ class WebSocketHandler:
         """Connect to WebSocket and authenticate."""
         await self.ts_client.connect()
         
+        # Use certifi CA bundle so SSL verify works on macOS (python.org installs)
+        # Polygon URL is wss://socket.polygon.io/stocks (no /client); auth is sent after connect.
+        ssl_ctx = ssl.create_default_context(cafile=certifi.where())
         self.websocket = await websockets.connect(
-            f"{self.ws_url}/client?apiKey={self.api_key}"
+            self.ws_url,
+            ssl=ssl_ctx,
         )
         
         # Authenticate
@@ -51,22 +57,30 @@ class WebSocketHandler:
         logger.info("WebSocket disconnected")
     
     async def subscribe(self, tickers: List[str]):
-        """Subscribe to ticker symbols.
+        """Subscribe to ticker symbols, or all stocks with ['*'].
         
         Args:
-            tickers: List of ticker symbols to subscribe to
+            tickers: List of ticker symbols, or ['*'] to subscribe to all stocks (A.*).
         """
-        normalized_tickers = [normalize_ticker(t) for t in tickers]
-        self.subscribed_tickers.extend(normalized_tickers)
-        
+        if not tickers or (len(tickers) == 1 and normalize_ticker(tickers[0]) == "*"):
+            # Subscribe to all stock aggregates (Polygon wildcard).
+            params = "A.*"
+            self.subscribed_tickers = ["*"]
+            logger.info("Subscribing to all stocks (A.*)")
+        else:
+            normalized_tickers = [normalize_ticker(t) for t in tickers]
+            self.subscribed_tickers = normalized_tickers
+            params = ",".join([f"A.{t}" for t in normalized_tickers])
+            logger.info(f"Subscribed to {len(normalized_tickers)} tickers")
+
         subscribe_msg = {
             "action": "subscribe",
-            "params": ",".join([f"A.{t}" for t in normalized_tickers])
+            "params": params
         }
-        
         if self.websocket:
             await self.websocket.send(json.dumps(subscribe_msg))
-            logger.info(f"Subscribed to {len(normalized_tickers)} tickers")
+            # Do not recv() here: Polygon often closes with 1000 (OK) if A.* is not allowed on this plan.
+            # The listen loop will handle the next message or ConnectionClosed.
     
     async def unsubscribe(self, tickers: List[str]):
         """Unsubscribe from ticker symbols.
@@ -156,39 +170,66 @@ class WebSocketHandler:
         logger.debug(f"Trade: {ticker} @ {message.get('p', 0)}")
     
     async def listen(self):
-        """Listen for messages in a loop."""
-        if not self.websocket:
-            await self.connect()
+        """Listen for messages in a loop. Reconnects on disconnect so the scanner keeps running."""
+        reconnect_backoff = 5.0
+        max_backoff = 120.0
         
-        try:
-            while self.running:
-                try:
-                    message = await asyncio.wait_for(
-                        self.websocket.recv(),
-                        timeout=30.0
-                    )
-                    data = json.loads(message)
-                    
-                    # Handle arrays of messages
-                    if isinstance(data, list):
-                        for msg in data:
-                            await self._process_message(msg)
-                    else:
-                        await self._process_message(data)
-                
-                except asyncio.TimeoutError:
-                    # Send heartbeat/ping
-                    if self.websocket:
-                        ping_msg = {"action": "heartbeat"}
-                        await self.websocket.send(json.dumps(ping_msg))
-                
-                except websockets.exceptions.ConnectionClosed:
-                    logger.warning("WebSocket connection closed, reconnecting...")
+        while self.running:
+            try:
+                if not self.websocket:
                     await self.connect()
-                    if self.subscribed_tickers:
-                        await self.subscribe(self.subscribed_tickers)
-        
-        except Exception as e:
-            logger.error(f"Error in listen loop: {e}")
-            self.running = False
+                if self.subscribed_tickers:
+                    await self.subscribe(self.subscribed_tickers)
+                reconnect_backoff = 5.0  # reset after successful connect
+            except websockets.exceptions.ConnectionClosed as e:
+                code = getattr(e, "code", "")
+                reason = getattr(e, "reason", "") or "unknown"
+                logger.warning(
+                    f"WebSocket closed after subscribe (code={code}, reason={reason}). "
+                    f"If code=1000, Polygon may not allow A.* on this plan; use a ticker list in config. Reconnecting in {int(reconnect_backoff)}s..."
+                )
+                self.websocket = None
+                await asyncio.sleep(reconnect_backoff)
+                reconnect_backoff = min(reconnect_backoff * 2, max_backoff)
+                continue
+            except Exception as e:
+                logger.warning(f"Connect failed, retry in {int(reconnect_backoff)}s: {e}")
+                await asyncio.sleep(reconnect_backoff)
+                reconnect_backoff = min(reconnect_backoff * 2, max_backoff)
+                continue
+
+            try:
+                while self.running and self.websocket:
+                    try:
+                        message = await asyncio.wait_for(
+                            self.websocket.recv(),
+                            timeout=30.0
+                        )
+                        data = json.loads(message)
+                        if isinstance(data, list):
+                            for msg in data:
+                                await self._process_message(msg)
+                        else:
+                            await self._process_message(data)
+                    except asyncio.TimeoutError:
+                        if self.websocket:
+                            await self.websocket.send(json.dumps({"action": "heartbeat"}))
+                    except websockets.exceptions.ConnectionClosed as e:
+                        code = getattr(e, "code", "")
+                        reason = getattr(e, "reason", "") or "unknown"
+                        logger.warning(
+                            f"WebSocket closed (code={code}, reason={reason}), reconnecting in {int(reconnect_backoff)}s..."
+                        )
+                        self.websocket = None
+                        await asyncio.sleep(reconnect_backoff)
+                        reconnect_backoff = min(reconnect_backoff * 2, max_backoff)
+                        break
+                    except Exception as e:
+                        logger.error(f"Error processing message: {e}")
+                        continue
+            except Exception as e:
+                logger.error(f"Listen error: {e}")
+                self.websocket = None
+                await asyncio.sleep(reconnect_backoff)
+                reconnect_backoff = min(reconnect_backoff * 2, max_backoff)
 

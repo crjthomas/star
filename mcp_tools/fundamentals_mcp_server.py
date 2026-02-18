@@ -1,6 +1,8 @@
 """MCP server for fundamentals and financial data tools."""
 from typing import Any, Dict, List, Optional
 from datetime import datetime, timedelta
+import asyncio
+import time
 import httpx
 import yfinance as yf
 from utils.logger import get_logger
@@ -9,6 +11,19 @@ from storage.sql_client import SQLClient
 
 logger = get_logger(__name__)
 
+# Rate limit and cache to avoid Yahoo Finance 429 (Too Many Requests)
+YAHOO_CACHE_TTL_SEC = 300
+YAHOO_MIN_INTERVAL_SEC = 2.0
+
+
+def _sync_fetch_yahoo_info(ticker: str) -> Dict[str, Any]:
+    """Sync fetch of Yahoo .info only (single quoteSummary-style request)."""
+    try:
+        return yf.Ticker(ticker).info or {}
+    except Exception as e:
+        return {"error": str(e)}
+
+
 class FundamentalsMCPServer:
     """MCP server exposing fundamentals and financial data tools."""
     
@@ -16,6 +31,9 @@ class FundamentalsMCPServer:
         self.settings = get_settings()
         self.sql_client = SQLClient()
         self._connected = False
+        self._yahoo_cache: Dict[str, tuple[float, Dict[str, Any]]] = {}
+        self._last_yahoo_time: float = 0
+        self._yahoo_lock: Optional[asyncio.Lock] = None
     
     async def connect(self):
         """Initialize database connection."""
@@ -29,6 +47,29 @@ class FundamentalsMCPServer:
         if self._connected:
             await self.sql_client.disconnect()
             self._connected = False
+
+    async def _rate_limited_yahoo_sync(self, sync_fn, *args, **kwargs) -> Any:
+        """Run a sync Yahoo-related call with global rate limiting to avoid 429."""
+        if self._yahoo_lock is None:
+            self._yahoo_lock = asyncio.Lock()
+        async with self._yahoo_lock:
+            now = time.monotonic()
+            elapsed = now - self._last_yahoo_time
+            if elapsed < YAHOO_MIN_INTERVAL_SEC:
+                await asyncio.sleep(YAHOO_MIN_INTERVAL_SEC - elapsed)
+            self._last_yahoo_time = time.monotonic()
+            return await asyncio.to_thread(sync_fn, *args, **kwargs)
+
+    async def _get_yahoo_info(self, ticker: str) -> Dict[str, Any]:
+        """Single shared Yahoo .info fetch per ticker with cache and rate limiting to avoid 429."""
+        now = time.monotonic()
+        if ticker in self._yahoo_cache:
+            ts, info = self._yahoo_cache[ticker]
+            if now - ts < YAHOO_CACHE_TTL_SEC and info and "error" not in info:
+                return info
+        info = await self._rate_limited_yahoo_sync(_sync_fetch_yahoo_info, ticker)
+        self._yahoo_cache[ticker] = (time.monotonic(), info)
+        return info
     
     def get_tools(self) -> List[Dict[str, Any]]:
         """Get available tools as MCP tool definitions.
@@ -165,22 +206,11 @@ class FundamentalsMCPServer:
             return {"success": False, "error": str(e)}
     
     async def _get_fundamentals(self, ticker: str) -> Dict[str, Any]:
-        """Get fundamental data from Yahoo Finance.
-        
-        Args:
-            ticker: Ticker symbol
-            
-        Returns:
-            Fundamental data
-        """
+        """Get fundamental data from Yahoo Finance (uses shared cache to avoid 429)."""
         try:
-            stock = yf.Ticker(ticker)
-            info = stock.info
-            
-            # Get balance sheet and financials
-            balance_sheet = stock.balance_sheet
-            financials = stock.financials
-            
+            info = await self._get_yahoo_info(ticker)
+            if info.get("error"):
+                return {"ticker": ticker, "error": info["error"]}
             fundamentals = {
                 "ticker": ticker,
                 "market_cap": info.get("marketCap"),
@@ -204,41 +234,23 @@ class FundamentalsMCPServer:
                 "earnings_growth": info.get("earningsGrowth"),
                 "peg_ratio": info.get("pegRatio"),
             }
-            
-            # Try to get latest data from database
             db_data = await self.sql_client.get_fundamentals(ticker)
             if db_data:
-                # Merge database data
                 fundamentals.update(db_data)
-            
             return fundamentals
-        
         except Exception as e:
             logger.error(f"Error fetching fundamentals for {ticker}: {e}")
             return {"ticker": ticker, "error": str(e)}
     
     async def _check_dilution_risk(self, ticker: str, days: int) -> Dict[str, Any]:
-        """Check for dilution risks.
-        
-        Args:
-            ticker: Ticker symbol
-            days: Days to look back
-            
-        Returns:
-            Dilution risk assessment
-        """
+        """Check for dilution risks (uses shared Yahoo cache)."""
         try:
-            stock = yf.Ticker(ticker)
-            info = stock.info
-            
-            # Get share count history
+            info = await self._get_yahoo_info(ticker)
+            if info.get("error"):
+                return {"ticker": ticker, "error": info["error"]}
             shares_outstanding = info.get("sharesOutstanding")
             shares_short = info.get("sharesShort")
-            
-            # Check for recent share count changes (would need historical data)
-            # For now, check if float is very small relative to outstanding (potential dilution)
             float_shares = info.get("floatShares")
-            
             dilution_risk = {
                 "ticker": ticker,
                 "shares_outstanding": shares_outstanding,
@@ -248,18 +260,12 @@ class FundamentalsMCPServer:
                 "dilution_risk_score": 0.0,
                 "risk_factors": []
             }
-            
             if shares_outstanding and float_shares:
                 float_ratio = float_shares / shares_outstanding
                 if float_ratio < 0.7:
                     dilution_risk["risk_factors"].append("Low float ratio may indicate recent dilution")
                     dilution_risk["dilution_risk_score"] += 0.3
-            
-            # Check for upcoming offerings (would need SEC filing data)
-            # This is a placeholder - in production, would check SEC EDGAR
-            
             return dilution_risk
-        
         except Exception as e:
             logger.error(f"Error checking dilution risk for {ticker}: {e}")
             return {"ticker": ticker, "error": str(e)}
@@ -325,29 +331,19 @@ class FundamentalsMCPServer:
         return stability
     
     async def _get_short_interest(self, ticker: str) -> Dict[str, Any]:
-        """Get short interest data.
-        
-        Args:
-            ticker: Ticker symbol
-            
-        Returns:
-            Short interest data
-        """
+        """Get short interest data (uses shared Yahoo cache)."""
         try:
-            stock = yf.Ticker(ticker)
-            info = stock.info
-            
+            info = await self._get_yahoo_info(ticker)
+            if info.get("error"):
+                return {"ticker": ticker, "error": info["error"]}
             shares_outstanding = info.get("sharesOutstanding")
             shares_short = info.get("sharesShort")
             short_ratio = info.get("shortRatio")
             short_percent_float = info.get("shortPercentOfFloat")
             avg_volume = info.get("averageVolume")
-            
-            # Calculate days to cover
             days_to_cover = None
             if shares_short and avg_volume and avg_volume > 0:
                 days_to_cover = shares_short / avg_volume
-            
             return {
                 "ticker": ticker,
                 "shares_short": shares_short,
@@ -357,26 +353,16 @@ class FundamentalsMCPServer:
                 "days_to_cover": days_to_cover,
                 "average_volume": avg_volume
             }
-        
         except Exception as e:
             logger.error(f"Error fetching short interest for {ticker}: {e}")
             return {"ticker": ticker, "error": str(e)}
     
     async def _check_reverse_split(self, ticker: str, days: int) -> Dict[str, Any]:
-        """Check for reverse stock splits.
-        
-        Args:
-            ticker: Ticker symbol
-            days: Days to look back/forward
-            
-        Returns:
-            Reverse split information
-        """
-        # In production, this would check SEC EDGAR filings (8-K forms)
-        # For now, check price history for sudden jumps (potential R/S indicator)
+        """Check for reverse stock splits (rate-limited to avoid Yahoo 429)."""
         try:
-            stock = yf.Ticker(ticker)
-            history = stock.history(period=f"{days}d")
+            def _fetch_history():
+                return yf.Ticker(ticker).history(period=f"{days}d")
+            history = await self._rate_limited_yahoo_sync(_fetch_history)
             
             if history.empty:
                 return {"ticker": ticker, "has_reverse_split": False}

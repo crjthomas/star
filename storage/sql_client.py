@@ -108,10 +108,16 @@ class SQLClient:
                     message TEXT,
                     metadata JSONB,
                     created_at TIMESTAMPTZ DEFAULT NOW(),
-                    is_sent BOOLEAN DEFAULT FALSE,
-                    INDEX idx_alerts_ticker_time (ticker, created_at DESC),
-                    INDEX idx_alerts_created_at (created_at DESC)
+                    is_sent BOOLEAN DEFAULT FALSE
                 );
+            """)
+            await conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_alerts_ticker_time
+                ON alerts (ticker, created_at DESC);
+            """)
+            await conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_alerts_created_at
+                ON alerts (created_at DESC);
             """)
             
             # Create table for news

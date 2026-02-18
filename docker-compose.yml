@@ -8,6 +8,8 @@ services:
       POSTGRES_USER: stockuser
       POSTGRES_PASSWORD: stockpass
       POSTGRES_DB: stockassistant
+    command: postgres -c max_connections=300
+    # ^ app has many connection pools; 300 gives headroom for main + webhook + all-stocks mode
     ports:
       - "5432:5432"
     volumes:
@@ -33,10 +35,11 @@ services:
       retries: 5
 
   chromadb:
-    image: chromadb/chroma:latest
+    # Pin to 0.4.22 to match chromadb Python client; :latest uses v2 API and breaks with client 0.4.x
+    image: chromadb/chroma:0.4.22
     container_name: stock_assistant_chromadb
     ports:
-      - "8000:8000"
+      - "8010:8000"   # host 8010 so webhook server can use 8000
     volumes:
       - chromadb_data:/chroma/chroma
     environment:

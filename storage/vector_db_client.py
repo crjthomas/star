@@ -17,7 +17,7 @@ class VectorDBClient:
     async def connect(self):
         """Connect to ChromaDB."""
         host = get_env_var("CHROMADB_HOST", "localhost")
-        port = int(get_env_var("CHROMADB_PORT", "8000"))
+        port = int(get_env_var("CHROMADB_PORT", "8010"))  # 8010 to match docker-compose (8000 = webhook)
         
         self.client = chromadb.HttpClient(
             host=host,
